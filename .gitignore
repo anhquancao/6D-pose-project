@@ -1,0 +1,7 @@
+.ipynb_checkpoints/
+__pycache__
+Linemod_preprocessed
+trained_checkpoints.zip
+lib/knn/EGG-INFO/
+lib/knn/build/
+lib/knn/dist/

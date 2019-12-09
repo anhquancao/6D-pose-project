@@ -9,7 +9,7 @@ def setup_logger(logger_name, log_file, level=logging.INFO):
     l.setLevel(level)
     l.addHandler(fileHandler)
 
-    streamHandler = logging.StreamHandler()
-    streamHandler.setFormatter(formatter)
-    l.addHandler(streamHandler)
+#     streamHandler = logging.StreamHandler()
+#     streamHandler.setFormatter(formatter)
+#     l.addHandler(streamHandler)
     return l

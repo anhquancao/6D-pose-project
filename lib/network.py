@@ -24,6 +24,18 @@ psp_models = {
     'resnet152': lambda: PSPNet(sizes=(1, 2, 3, 6), psp_size=2048, deep_features_size=1024, backend='resnet152')
 }
 
+class DepthNet(nn.Module):
+
+    def __init__(self, usegpu=True):
+        super(DepthNet, self).__init__()
+
+        self.model = psp_models['resnet18'.lower()]()
+        self.model.final = torch.nn.Conv2d(64, 1, 1)
+
+    def forward(self, x):
+        x = self.model(x)
+        return x
+
 class PoseNetRGBOnly(nn.Module):
     def __init__(self, num_points, num_obj):
         super(PoseNetRGBOnly, self).__init__()

@@ -20,7 +20,48 @@ import scipy.io as scio
 import yaml
 import cv2
 
-
+class DepthDataset(data.Dataset):
+    def __init__(self, mode, root):
+        self.objlist = [6, 8, 9, 12, 13, 14, 15]
+        self.mode = mode
+        self.list_rgb = []
+        self.list_depth = []
+        self.root = root
+        
+        item_count = 0
+        for item in self.objlist:
+            if self.mode == 'train':
+                input_file = open('{0}/data/{1}/train.txt'.format(self.root, '%02d' % item))
+            else:
+                input_file = open('{0}/data/{1}/test.txt'.format(self.root, '%02d' % item))
+            while 1:
+                item_count += 1
+                input_line = input_file.readline()
+                if self.mode == 'test' and item_count % 10 != 0:
+                    continue
+                if not input_line:
+                    break
+                if input_line[-1:] == '\n':
+                    input_line = input_line[:-1]
+                self.list_rgb.append('{0}/data/{1}/rgb/{2}.png'.format(self.root, '%02d' % item, input_line))
+                self.list_depth.append('{0}/data/{1}/depth/{2}.png'.format(self.root, '%02d' % item, input_line))
+                
+            print("Object {0} buffer loaded".format(item))
+        
+        self.length = len(self.list_rgb)
+        self.trans = transforms.Compose([transforms.ToTensor(), 
+                                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        
+    def __getitem__(self, index):
+        
+        img = Image.open(self.list_rgb[index]).convert('RGB')
+        img = self.trans(img)
+        depth = np.array(Image.open(self.list_depth[index]))
+        return img, torch.from_numpy(depth)
+    
+    def __len__(self):
+        return self.length
+    
 class PoseDataset(data.Dataset):
     def __init__(self, mode, num, add_noise, root, noise_trans, refine):
         self.objlist = [2, 4, 5, 10, 11]

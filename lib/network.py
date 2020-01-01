@@ -30,7 +30,7 @@ class DepthNet(nn.Module):
         super(DepthNet, self).__init__()
 
         self.model = psp_models['resnet18'.lower()]()
-        self.model.final = torch.nn.Conv2d(64, 1, 1)
+        self.model.final = nn.Conv2d(64, 1, 1)
 
     def forward(self, x):
         x = self.model(x)

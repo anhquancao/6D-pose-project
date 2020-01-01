@@ -30,7 +30,9 @@ class DepthNet(nn.Module):
         super(DepthNet, self).__init__()
 
         self.model = psp_models['resnet18'.lower()]()
+
         self.model.final = nn.Conv2d(64, 1, 1)
+
 
     def forward(self, x):
         x = self.model(x)
@@ -221,7 +223,6 @@ class PoseNet(nn.Module):
         
         return out_rx, out_tx, out_cx, emb.detach()
  
-
 
 class PoseRefineNetFeat(nn.Module):
     def __init__(self, num_points):

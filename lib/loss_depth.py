@@ -6,7 +6,6 @@ import numpy as np
 import torch.nn as nn
 import random
 
-
 class LogL2(_Loss):
 
     def __init__(self):

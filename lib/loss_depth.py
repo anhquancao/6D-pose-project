@@ -26,8 +26,29 @@ class GradientLoss(_Loss):
     def __init__(self):
         super(GradientLoss, self).__init__()
     
-    def forward(self, pred_log_depth, true_depth):
-        pass
+    def forward(self, pred_grad, true_grad):
+        mask_depth = true_depth.eq(0.)
+        pred_depth = torch.exp(pred_log_depth)
+        true_depth[mask_depth] = pred_depth # use the predicted value to fill in the missing values
+        
+        grad_true_depth_x, grad_true_depth_y = im_grad(true_depth)
+        grad_pred_depth_x, grad_pred_depth_y = im_grad(pred_depth)
+        
+        return torch.mean((grad_true_depth_x - grad_pred_depth_x) ** 2 + (grad_true_depth_y - grad_pred_depth_y) ** 2)
+        
+        
+class NormalLoss(_Loss):
+    def __init__(self):
+        super(NormalLoss, self).__init__()
+    
+    def forward(self):
+        mask_depth = true_depth.eq(0.)
+        pred_depth = torch.exp(pred_log_depth)
+        true_depth[mask_depth] = pred_depth # use the predicted value to fill in the missing values
+        
+        grad_true_depth_x, grad_true_depth_y = im_grad(true_depth)
+        grad_pred_depth_x, grad_pred_depth_y = im_grad(pred_depth)
+        
         
 
 class LogL2(_Loss):

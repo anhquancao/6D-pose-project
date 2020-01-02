@@ -15,6 +15,8 @@ import numpy as np
 import pdb
 import torch.nn.functional as F
 from lib.pspnet import PSPNet
+from torchvision import models
+from collections import OrderedDict
 
 psp_models = {
     'resnet18': lambda: PSPNet(sizes=(1, 2, 3, 6), psp_size=512, deep_features_size=256, backend='resnet18'),
@@ -24,7 +26,73 @@ psp_models = {
     'resnet152': lambda: PSPNet(sizes=(1, 2, 3, 6), psp_size=2048, deep_features_size=1024, backend='resnet152')
 }
 
-class DepthNet(nn.Module):
+class UpProjBlock(nn.Module):
+    """
+    Deeper Depth Prediction with Fully Convolutional Residual Networks
+    """
+    # branch 1: 5*5 conv -> batchnorm -> ReLU -> 3*3 conv -> batchnorm
+    # branch 2: 5*5 conv -> batchnorm
+
+    def __init__(self, in_channels):
+        super(UpProjBlock, self).__init__()
+        out_channels = in_channels // 2
+        self.unpool = nn.ConvTranspose2d(in_channels, in_channels, kernel_size=2, groups=in_channels, stride=2)
+        self.branch1 = nn.Sequential(OrderedDict([
+            ('conv1', nn.Conv2d(in_channels, out_channels, kernel_size=5, padding=2)), 
+            ('bn1', nn.BatchNorm2d(out_channels)),
+            ('relu', nn.ReLU()),
+            ('conv2', nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)),
+            ('bn2', nn.BatchNorm2d(out_channels))
+        ]))
+        self.branch2 = nn.Sequential(OrderedDict([
+            ('conv1', nn.Conv2d(in_channels, out_channels, kernel_size=5, padding=2)),
+            ('bn', nn.BatchNorm2d(out_channels)),
+        ]))
+        
+    def forward(self, x):
+        x = self.unpool(x)
+        x1 = self.branch1(x)
+        x2 = self.branch2(x)
+        x = x1 + x2
+        return F.relu(x)
+
+class DepthV2(nn.Module):
+    def __init__(self, output_size, pretrained=True):
+        super(DepthV2, self).__init__()
+        resnet = models.resnet50(pretrained=pretrained)
+        modules = list(resnet.children())[:-2]
+        decoder_out_channels = 2048
+        
+        self.conv = nn.Conv2d(decoder_out_channels, decoder_out_channels // 2, kernel_size=1)
+        self.bn = nn.BatchNorm2d(decoder_out_channels // 2)
+        
+        self.encoder = nn.Sequential(*modules)
+        self.decoder = nn.Sequential(OrderedDict([
+            ('up_proj_1', UpProjBlock(decoder_out_channels // 2)),
+            ('up_proj_2', UpProjBlock(decoder_out_channels // 4)),
+            ('up_proj_3', UpProjBlock(decoder_out_channels // 8)),
+            ('up_proj_4', UpProjBlock(decoder_out_channels // 16))
+        ]))
+        
+        self.predict_depth = nn.Conv2d(decoder_out_channels // 32, 1, kernel_size=3, padding=1)
+        self.bilinear = nn.Upsample(size=output_size, mode='bilinear', align_corners=True)
+        
+        
+    def forward(self, x):
+        x = self.encoder(x)
+        
+        x = self.conv(x)
+        x = self.bn(x)
+        
+        x = self.decoder(x)
+        
+        x = self.predict_depth(x)
+        x = self.bilinear(x)
+        
+        return x
+        
+
+class DepthNetPSP(nn.Module):
 
     def __init__(self, usegpu=True):
         super(DepthNet, self).__init__()

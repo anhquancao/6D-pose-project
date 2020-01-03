@@ -47,17 +47,47 @@ class DepthDataset(data.Dataset):
                 self.list_depth.append('{0}/data/{1}/depth/{2}.png'.format(self.root, '%02d' % item, input_line))
                 
             print("Object {0} buffer loaded".format(item))
+            
         
         self.length = len(self.list_rgb)
-        self.trans = transforms.Compose([transforms.ToTensor(), 
-                                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        self.input_trans = transforms.Compose([
+            transforms.ColorJitter(
+                brightness=[.6, 1.4],
+                contrast=[.6, 1.4],
+                saturation=[.6, 1.4],
+            ),
+            transforms.ToTensor(), 
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        
+        self.share_trans = transforms.Compose([
+            transforms.RandomHorizontalFlip()
+        ])
+        
+        self.input_trans_test = transforms.Compose([
+            transforms.ToTensor(), 
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
         
     def __getitem__(self, index):
         
         img = Image.open(self.list_rgb[index]).convert('RGB')
-        img = self.trans(img)
-        depth = np.array(Image.open(self.list_depth[index]))
-        return img, torch.from_numpy(depth)
+        depth = Image.open(self.list_depth[index])
+        
+        if self.mode == 'train':
+            seed = random.randint(0, 2**32)
+            random.seed(seed)
+            torch.manual_seed(seed)
+            img = self.share_trans(img)
+
+            random.seed(seed)
+            torch.manual_seed(seed)
+            depth = self.share_trans(depth)
+            
+            img = self.input_trans(img)
+            depth = torch.from_numpy(np.array(depth))
+        else:
+            img = self.input_trans_test(img)
+            depth = torch.from_numpy(np.array(depth))
+        return img, depth 
     
     def __len__(self):
         return self.length

@@ -26,30 +26,47 @@ class GradientLoss(_Loss):
     def __init__(self):
         super(GradientLoss, self).__init__()
     
-    def forward(self, pred_grad, true_grad):
-        mask_depth = true_depth.eq(0.)
+    def forward(self, pred_log_depth, true_depth):
+        true_depth = true_depth.view(1, 1, 480, -1).cuda()
+        pred_log_depth = pred_log_depth.view(1, 1, 480, -1).cuda()
+        
+        mask_depth = true_depth.eq(0.).view(1, 1, 480, -1)
         pred_depth = torch.exp(pred_log_depth)
-        true_depth[mask_depth] = pred_depth # use the predicted value to fill in the missing values
+        true_depth[mask_depth] = pred_depth[mask_depth] # use the predicted value to fill in the missing values
         
         grad_true_depth_x, grad_true_depth_y = im_grad(true_depth)
         grad_pred_depth_x, grad_pred_depth_y = im_grad(pred_depth)
         
-        return torch.mean((grad_true_depth_x - grad_pred_depth_x) ** 2 + (grad_true_depth_y - grad_pred_depth_y) ** 2)
+        loss_dx = torch.log(torch.abs(grad_true_depth_x - grad_pred_depth_x) + 0.5).mean()
+        loss_dy = torch.log(torch.abs(grad_true_depth_y - grad_pred_depth_y) + 0.5).mean()
+        
+        return loss_dx + loss_dy
         
         
 class NormalLoss(_Loss):
     def __init__(self):
         super(NormalLoss, self).__init__()
     
-    def forward(self):
-        mask_depth = true_depth.eq(0.)
+    def forward(self, pred_log_depth, true_depth):
+        true_depth = true_depth.view(1, 1, 480, -1).cuda()
+        pred_log_depth = pred_log_depth.view(1, 1, 480, -1).cuda()
+        
+        mask_depth = true_depth.eq(0.).view(1, 1, 480, -1)
         pred_depth = torch.exp(pred_log_depth)
-        true_depth[mask_depth] = pred_depth # use the predicted value to fill in the missing values
+        true_depth[mask_depth] = pred_depth[mask_depth] # use the predicted value to fill in the missing values
         
         grad_true_depth_x, grad_true_depth_y = im_grad(true_depth)
         grad_pred_depth_x, grad_pred_depth_y = im_grad(pred_depth)
         
+        ones = torch.ones(true_depth.size(0), 1, true_depth.size(2),true_depth.size(3)).float().cuda()
+        ones = torch.autograd.Variable(ones)
         
+        true_depth_normal = torch.cat((-grad_true_depth_x, -grad_true_depth_y, ones), 1)
+        pred_normal = torch.cat((-grad_pred_depth_x, -grad_pred_depth_y, ones), 1)
+        
+        cos = nn.CosineSimilarity(dim=1, eps=0)
+        return torch.abs(1 - cos(pred_normal, true_depth_normal)).mean()
+              
 
 class LogL2(_Loss):
 

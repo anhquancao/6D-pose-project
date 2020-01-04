@@ -44,7 +44,7 @@ class DepthDataset(data.Dataset):
                 if input_line[-1:] == '\n':
                     input_line = input_line[:-1]
                 self.list_rgb.append('{0}/data/{1}/rgb/{2}.png'.format(self.root, '%02d' % item, input_line))
-                self.list_depth.append('{0}/data/{1}/depth/{2}.png'.format(self.root, '%02d' % item, input_line))
+                self.list_depth.append('{0}/data/{1}/depth_filled/{2}.npy'.format(self.root, '%02d' % item, input_line))
                 
             print("Object {0} buffer loaded".format(item))
             
@@ -70,23 +70,23 @@ class DepthDataset(data.Dataset):
     def __getitem__(self, index):
         
         img = Image.open(self.list_rgb[index]).convert('RGB')
-        depth = Image.open(self.list_depth[index])
+        depth = np.load(self.list_depth[index])
         
         if self.mode == 'train':
-            seed = random.randint(0, 2**32)
-            random.seed(seed)
-            torch.manual_seed(seed)
-            img = self.share_trans(img)
+#             seed = random.randint(0, 2**32)
+#             random.seed(seed)
+#             torch.manual_seed(seed)
+#             img = self.share_trans(img)
 
-            random.seed(seed)
-            torch.manual_seed(seed)
-            depth = self.share_trans(depth)
+#             random.seed(seed)
+#             torch.manual_seed(seed)
+#             depth = self.share_trans(depth)
             
             img = self.input_trans(img)
-            depth = torch.from_numpy(np.array(depth))
+#             depth = torch.from_numpy(np.array(depth))
         else:
             img = self.input_trans_test(img)
-            depth = torch.from_numpy(np.array(depth))
+#             depth = torch.from_numpy(np.array(depth))
         return img, depth 
     
     def __len__(self):

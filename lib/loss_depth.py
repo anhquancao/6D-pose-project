@@ -27,12 +27,7 @@ class GradientLoss(_Loss):
         super(GradientLoss, self).__init__()
     
     def forward(self, pred_log_depth, true_depth):
-        true_depth = true_depth.view(1, 1, 480, -1).cuda()
-        pred_log_depth = pred_log_depth.view(1, 1, 480, -1).cuda()
-        
-        mask_depth = true_depth.eq(0.).view(1, 1, 480, -1)
         pred_depth = torch.exp(pred_log_depth)
-        true_depth[mask_depth] = pred_depth[mask_depth] # use the predicted value to fill in the missing values
         
         grad_true_depth_x, grad_true_depth_y = im_grad(true_depth)
         grad_pred_depth_x, grad_pred_depth_y = im_grad(pred_depth)
@@ -48,17 +43,14 @@ class NormalLoss(_Loss):
         super(NormalLoss, self).__init__()
     
     def forward(self, pred_log_depth, true_depth):
-        true_depth = true_depth.view(1, 1, 480, -1).cuda()
-        pred_log_depth = pred_log_depth.view(1, 1, 480, -1).cuda()
+        bs, c, h, w = true_depth.shape
         
-        mask_depth = true_depth.eq(0.).view(1, 1, 480, -1)
         pred_depth = torch.exp(pred_log_depth)
-        true_depth[mask_depth] = pred_depth[mask_depth] # use the predicted value to fill in the missing values
         
         grad_true_depth_x, grad_true_depth_y = im_grad(true_depth)
         grad_pred_depth_x, grad_pred_depth_y = im_grad(pred_depth)
         
-        ones = torch.ones(true_depth.size(0), 1, true_depth.size(2),true_depth.size(3)).float().cuda()
+        ones = torch.ones(bs, 1, h, w).float().cuda()
         ones = torch.autograd.Variable(ones)
         
         true_depth_normal = torch.cat((-grad_true_depth_x, -grad_true_depth_y, ones), 1)
@@ -74,35 +66,11 @@ class LogL2(_Loss):
         super(LogL2, self).__init__()
     
     def forward(self, pred_log_depth, true_depth):
-        bs = pred_log_depth.shape[0]
+        bs, c, h, w = true_depth.shape
 
-        mask_depth = true_depth.eq(0.).float()
-        log_true_depth = torch.log(true_depth + mask_depth)
-        
-        diff = pred_log_depth - log_true_depth
-        diff *= (1.0 - mask_depth)
-        
-        n = torch.sum(1 - mask_depth)
-        
-        res = torch.sqrt(torch.sum(diff ** 2)) / n
-        
-        return res / bs
-
-class L2(_Loss):
-    def __init__(self):
-        super(L2, self).__init__()
-        
-    def forward(self, pred_log_depth, true_depth):
-        bs = pred_log_depth.shape[0]
-        
-        mask_depth = true_depth.eq(0.).float()
         pred_depth = torch.exp(pred_log_depth)
-       
-        diff  = 10 * (pred_depth - true_depth) 
+        
+        diff = pred_depth - true_depth
+        
+        return torch.log(torch.abs(diff) + 0.5).mean()
 
-        diff *= (1.0 - mask_depth)
-        
-        n = torch.sum(1 - mask_depth)
-        
-        
-        return torch.sqrt(torch.sum(diff ** 2)) / (n * bs)

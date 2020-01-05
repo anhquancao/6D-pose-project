@@ -30,7 +30,7 @@ def depth_to_img(tensor):
     max_d = torch.max(tensor)
     min_d = torch.min(tensor)
     depth_norm = (tensor - min_d) * 255 / (max_d - min_d)
-    return depth_norm[0]
+    return depth_norm
 
 def visualize(img, depth, pred_depth):
     max_d = torch.max(depth)

@@ -52,9 +52,9 @@ class DepthDataset(data.Dataset):
         self.length = len(self.list_rgb)
         self.input_trans = transforms.Compose([
             transforms.ColorJitter(
-                brightness=[.6, 1.4],
-                contrast=[.6, 1.4],
-                saturation=[.6, 1.4],
+                brightness=[.9, 1.1],
+                contrast=[.9, 1.1],
+                saturation=[.9, 1.1],
             ),
             transforms.ToTensor(), 
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])

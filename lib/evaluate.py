@@ -109,7 +109,7 @@ def averageErrors(errorSum, N):
 
     return averageError
 
-def run_eval(estimator, dataloader):
+def run_eval(estimator, dataloader, return_log=False):
     estimator.eval()
     errors = {'MSE': 0, 'RMSE': 0, 'ABS_REL': 0, 'LG10': 0,
               'MAE': 0,  'DELTA1': 0, 'DELTA2': 0, 'DELTA3': 0}
@@ -120,8 +120,10 @@ def run_eval(estimator, dataloader):
         
         true_depth = true_depth.unsqueeze(0)
         img, true_depth = img.float().cuda(), true_depth.float().cuda()
-
+        
         pred_depth = estimator(img)
+        if return_log:
+            pred_depth = torch.exp(pred_depth)
 
         error = evaluateError(pred_depth, true_depth)
 

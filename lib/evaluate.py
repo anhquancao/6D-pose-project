@@ -3,6 +3,7 @@
 import torch
 import math
 import numpy as np
+from IPython.display import clear_output
 
 def lg10(x):
     return torch.div(torch.log(x), math.log(10))
@@ -14,13 +15,13 @@ def maxOfTwo(x, y):
     return z
 
 def nValid(x):
-    return torch.sum(torch.eq(x, x).float())
+    return torch.sum(x.ne(0).float())
 
 def nNanElement(x):
-    return torch.sum(torch.ne(x, x).float())
+    return torch.sum(x.eq(0).float())
 
 def getNanMask(x):
-    return torch.ne(x, x)
+    return x.eq(0)
 
 def setNanToZero(input, target):
     nanMask = getNanMask(target)
@@ -41,10 +42,11 @@ def evaluateError(output, target):
 
     _output, _target, nanMask, nValidElement = setNanToZero(output, target)
 
+    
     if (nValidElement.data.cpu().numpy() > 0):
         diffMatrix = torch.abs(_output - _target)
 
-        errors['MSE'] = torch.sum(torch.pow(diffMatrix, 2)) / nValidElement
+        errors['MSE'] = torch.sum(diffMatrix ** 2) / nValidElement
 
         errors['MAE'] = torch.sum(diffMatrix) / nValidElement
 
@@ -67,7 +69,7 @@ def evaluateError(output, target):
             torch.le(maxRatio, math.pow(1.25, 2)).float()) / nValidElement
         errors['DELTA3'] = torch.sum(
             torch.le(maxRatio, math.pow(1.25, 3)).float()) / nValidElement
-
+        
         errors['MSE'] = float(errors['MSE'].data.cpu().numpy())
         errors['ABS_REL'] = float(errors['ABS_REL'].data.cpu().numpy())
         errors['LG10'] = float(errors['LG10'].data.cpu().numpy())
@@ -75,7 +77,7 @@ def evaluateError(output, target):
         errors['DELTA1'] = float(errors['DELTA1'].data.cpu().numpy())
         errors['DELTA2'] = float(errors['DELTA2'].data.cpu().numpy())
         errors['DELTA3'] = float(errors['DELTA3'].data.cpu().numpy())
-
+ 
     return errors
 
 
@@ -106,3 +108,29 @@ def averageErrors(errorSum, N):
     averageError['DELTA3'] = errorSum['DELTA3'] / N
 
     return averageError
+
+def run_eval(estimator, dataloader):
+    estimator.eval()
+    errors = {'MSE': 0, 'RMSE': 0, 'ABS_REL': 0, 'LG10': 0,
+              'MAE': 0,  'DELTA1': 0, 'DELTA2': 0, 'DELTA3': 0}
+
+    for i, data in enumerate(dataloader):
+        clear_output(wait=True)
+        img, true_depth = data
+        
+        true_depth = true_depth.unsqueeze(0)
+        img, true_depth = img.float().cuda(), true_depth.float().cuda()
+
+        pred_depth = estimator(img)
+
+        error = evaluateError(pred_depth, true_depth)
+
+        errors = addErrors(errors, error, 1)
+        
+        print((i + 1) * 100 / len(dataloader), "%")
+
+
+    clear_output(wait=True)
+    avg_error = averageErrors(errors, len(dataloader))
+    avg_error['RMSE'] = np.sqrt(avg_error['MSE'])
+    print(avg_error)

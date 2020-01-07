@@ -35,8 +35,8 @@ class GradientLoss(_Loss):
         grad_true_depth_x, grad_true_depth_y = im_grad(true_depth)
         grad_pred_depth_x, grad_pred_depth_y = im_grad(pred_depth)
         
-        loss_dx = torch.abs(grad_true_depth_x - grad_pred_depth_x).mean()
-        loss_dy = torch.abs(grad_true_depth_y - grad_pred_depth_y).mean()
+        loss_dx = torch.log(torch.abs(grad_true_depth_x - grad_pred_depth_x) + 0.5).mean()
+        loss_dy = torch.log(torch.abs(grad_true_depth_y - grad_pred_depth_y) + 0.5).mean()
         
         return loss_dx + loss_dy
         

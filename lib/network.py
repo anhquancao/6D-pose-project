@@ -204,8 +204,6 @@ class DepthV3(nn.Module):
         self.R = R()
         
         
-        
-        
     def forward(self, x):
         block1, block2, block3, block4 = self.encoder(x)
         x_decoded = self.decoder(block1, block2, block3, block4)
@@ -253,7 +251,7 @@ class DepthV2(nn.Module):
 class DepthNetPSP(nn.Module):
 
     def __init__(self, usegpu=True):
-        super(DepthNet, self).__init__()
+        super(DepthNetPSP, self).__init__()
 
         self.model = psp_models['resnet18'.lower()]()
 

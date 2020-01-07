@@ -21,30 +21,44 @@ import yaml
 import cv2
 
 class DepthDataset(data.Dataset):
-    def __init__(self, mode, root):
-        self.objlist = [6, 8, 9, 12, 13, 14, 15]
+    def __init__(self, mode, root):           
         self.mode = mode
         self.list_rgb = []
         self.list_depth = []
         self.root = root
         
+        if self.mode == 'train':
+            self.objlist = [6, 8, 9, 12, 13, 14, 15]
+        elif self.mode == 'eval':
+            self.objlist = [2, 4, 5, 10, 11]
+        else:
+            self.objlist = [6, 8, 9, 12, 13, 14, 15]
+                
         item_count = 0
         for item in self.objlist:
             if self.mode == 'train':
                 input_file = open('{0}/data/{1}/train.txt'.format(self.root, '%02d' % item))
+                
+            elif self.mode == 'eval':
+                input_file = open('{0}/data/{1}/test.txt'.format(self.root, '%02d' % item))
+                
             else:
                 input_file = open('{0}/data/{1}/test.txt'.format(self.root, '%02d' % item))
+                
             while 1:
                 item_count += 1
                 input_line = input_file.readline()
-                if self.mode == 'test' and item_count % 10 != 0:
+                if (self.mode == 'test' or self.mode == 'eval') and item_count % 10 != 0:
                     continue
                 if not input_line:
                     break
                 if input_line[-1:] == '\n':
                     input_line = input_line[:-1]
                 self.list_rgb.append('{0}/data/{1}/rgb/{2}.png'.format(self.root, '%02d' % item, input_line))
-                self.list_depth.append('{0}/data/{1}/depth_filled/{2}.npy'.format(self.root, '%02d' % item, input_line))
+                if self.mode == 'eval':
+                    self.list_depth.append('{0}/data/{1}/depth/{2}.png'.format(self.root, '%02d' % item, input_line))
+                else:
+                    self.list_depth.append('{0}/data/{1}/depth_filled/{2}.npy'.format(self.root, '%02d' % item, input_line))
                 
             print("Object {0} buffer loaded".format(item))
             
@@ -52,9 +66,9 @@ class DepthDataset(data.Dataset):
         self.length = len(self.list_rgb)
         self.input_trans = transforms.Compose([
             transforms.ColorJitter(
-                brightness=[.9, 1.1],
-                contrast=[.9, 1.1],
-                saturation=[.9, 1.1],
+                brightness=[.6, 1.4],
+                contrast=[.6, 1.4],
+                saturation=[.6, 1.4],
             ),
             transforms.ToTensor(), 
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
@@ -70,7 +84,10 @@ class DepthDataset(data.Dataset):
     def __getitem__(self, index):
         
         img = Image.open(self.list_rgb[index]).convert('RGB')
-        depth = np.load(self.list_depth[index])
+        if self.mode == 'eval':
+            depth = np.array(Image.open(self.list_depth[index]))
+        else:
+            depth = np.load(self.list_depth[index])
         
         if self.mode == 'train':
 #             seed = random.randint(0, 2**32)

@@ -1,0 +1,12 @@
+2020-01-10 11:22:41,917 : Train time 01h 09m 21s, Training started
+2020-01-10 11:22:42,676 : Train time 01h 09m 22s Epoch 5 Batch 1 Frame 8 Avg_dis:0.0186381705570966
+2020-01-10 11:22:43,125 : Train time 01h 09m 22s Epoch 5 Batch 2 Frame 16 Avg_dis:0.012652303674258292
+2020-01-10 11:22:43,584 : Train time 01h 09m 23s Epoch 5 Batch 3 Frame 24 Avg_dis:0.01501881005242467
+2020-01-10 11:22:44,038 : Train time 01h 09m 23s Epoch 5 Batch 4 Frame 32 Avg_dis:0.015695540932938457
+2020-01-10 11:22:44,510 : Train time 01h 09m 24s Epoch 5 Batch 5 Frame 40 Avg_dis:0.02204229251947254
+2020-01-10 11:22:44,922 : Train time 01h 09m 24s Epoch 5 Batch 6 Frame 48 Avg_dis:0.021827722492162138
+2020-01-10 11:22:45,406 : Train time 01h 09m 25s Epoch 5 Batch 7 Frame 56 Avg_dis:0.02188091864809394
+2020-01-10 11:22:45,854 : Train time 01h 09m 25s Epoch 5 Batch 8 Frame 64 Avg_dis:0.01711889635771513
+2020-01-10 11:22:46,306 : Train time 01h 09m 25s Epoch 5 Batch 9 Frame 72 Avg_dis:0.015203532529994845
+2020-01-10 11:22:46,712 : Train time 01h 09m 26s Epoch 5 Batch 10 Frame 80 Avg_dis:0.017203480208991095
+2020-01-10 11:22:47,290 : Train time 01h 09m 26s Epoch 5 Batch 11 Frame 88 Avg_dis:0.02278517058584839

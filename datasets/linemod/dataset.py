@@ -110,7 +110,7 @@ class DepthDataset(data.Dataset):
         return self.length
     
 class PoseDataset(data.Dataset):
-    def __init__(self, mode, num, add_noise, root, noise_trans, refine):
+    def __init__(self, mode, num, add_noise, root, noise_trans, refine, use_true_depth=True):
         self.objlist = [2, 4, 5, 10, 11]
         self.mode = mode
 
@@ -124,7 +124,8 @@ class PoseDataset(data.Dataset):
         self.root = root
         self.noise_trans = noise_trans
         self.refine = refine
-
+        self.use_true_depth = use_true_depth
+        
         item_count = 0
         for item in self.objlist:
             if self.mode == 'train':
@@ -141,7 +142,12 @@ class PoseDataset(data.Dataset):
                 if input_line[-1:] == '\n':
                     input_line = input_line[:-1]
                 self.list_rgb.append('{0}/data/{1}/rgb/{2}.png'.format(self.root, '%02d' % item, input_line))
-                self.list_depth.append('{0}/data/{1}/depth/{2}.png'.format(self.root, '%02d' % item, input_line))
+                
+                if self.use_true_depth:   
+                    self.list_depth.append('{0}/data/{1}/depth/{2}.png'.format(self.root, '%02d' % item, input_line))
+                else:
+                    self.list_depth.append('{0}/data/{1}/depth_predicted/{2}.npy'.format(self.root, '%02d' % item, input_line))
+                    
                 if self.mode == 'eval':
                     self.list_label.append('{0}/segnet_results/{1}_label/{2}_label.png'.format(self.root, '%02d' % item, input_line))
                 else:
@@ -178,7 +184,13 @@ class PoseDataset(data.Dataset):
     def __getitem__(self, index):
         img = Image.open(self.list_rgb[index])
         ori_img = np.array(img)
-        depth = np.array(Image.open(self.list_depth[index]))
+ 
+        if self.use_true_depth:
+            depth = np.array(Image.open(self.list_depth[index]))
+            
+        else:
+            depth = np.load(self.list_depth[index])
+            depth = depth.reshape((480, 640))
         label = np.array(Image.open(self.list_label[index]))
         obj = self.list_obj[index]
         rank = self.list_rank[index]        
@@ -190,21 +202,22 @@ class PoseDataset(data.Dataset):
                     break
         else:
             meta = self.meta[obj][rank][0]
-
+        
         mask_depth = ma.getmaskarray(ma.masked_not_equal(depth, 0))
         if self.mode == 'eval':
             mask_label = ma.getmaskarray(ma.masked_equal(label, np.array(255)))
         else:
             mask_label = ma.getmaskarray(ma.masked_equal(label, np.array([255, 255, 255])))[:, :, 0]
-        
+   
         mask = mask_label * mask_depth
 
         if self.add_noise:
             img = self.trancolor(img)
-
+        
         img = np.array(img)[:, :, :3]
         img = np.transpose(img, (2, 0, 1))
         img_masked = img
+        
 
         if self.mode == 'eval':
             rmin, rmax, cmin, cmax = get_bbox(mask_to_bbox(mask_label))
@@ -220,6 +233,8 @@ class PoseDataset(data.Dataset):
         add_t = np.array([random.uniform(-self.noise_trans, self.noise_trans) for i in range(3)])
 
         choose = mask[rmin:rmax, cmin:cmax].flatten().nonzero()[0]
+
+    
         if len(choose) == 0:
             cc = torch.LongTensor([0])
             return(cc, cc, cc, cc, cc, cc)
@@ -274,6 +289,7 @@ class PoseDataset(data.Dataset):
         #for it in target:
         #    fw.write('{0} {1} {2}\n'.format(it[0], it[1], it[2]))
         #fw.close()
+        
 
         return torch.from_numpy(cloud.astype(np.float32)), \
                torch.LongTensor(choose.astype(np.int32)), \

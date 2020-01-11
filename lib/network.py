@@ -262,6 +262,8 @@ class DepthNetPSP(nn.Module):
         x = self.model(x)
         return x
 
+    
+    
 class PoseNetRGBOnly(nn.Module):
     def __init__(self, num_points, num_obj):
         super(PoseNetRGBOnly, self).__init__()

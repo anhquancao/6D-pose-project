@@ -41,7 +41,6 @@ class DepthDataset(data.Dataset):
                 
             elif self.mode == 'eval':
                 input_file = open('{0}/data/{1}/test.txt'.format(self.root, '%02d' % item))
-                
             else:
                 input_file = open('{0}/data/{1}/test.txt'.format(self.root, '%02d' % item))
                 

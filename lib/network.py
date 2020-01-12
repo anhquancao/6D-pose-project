@@ -262,12 +262,42 @@ class DepthNetPSP(nn.Module):
         x = self.model(x)
         return x
 
-    
+class ConfNet(nn.Module):
+    def __init__(self, num_obj):
+        super(ConfNet, self).__init__()
+       
+        self.conv1 = torch.nn.Conv1d(1024, 512, 1)
+        self.conv2 = torch.nn.Conv1d(512, 256, 1)
+        self.conv3 = torch.nn.Conv1d(256, 128, 1)
+        self.conv4 = torch.nn.Conv1d(128, 32, 1)
+        self.conv5 = torch.nn.Conv1d(32, 8, 1)
+        
+        self.fc1 = nn.Linear(4000, 1024)
+        self.fc2 = nn.Linear(1024, 500)
+        self.dropout = nn.Dropout()
+        
+    def forward(self, emb):
+        emb = F.relu(self.conv1(emb))
+        
+        emb = F.relu(self.conv2(emb))
+        emb = F.relu(self.conv3(emb))
+        emb = F.relu(self.conv4(emb))
+        emb = F.relu(self.conv5(emb))
+
+        emb = emb.view(emb.size(0), -1)
+
+        emb = F.relu(self.fc1(emb))
+        emb = self.dropout(emb)
+        emb = F.relu(self.fc2(emb))
+        return emb
+        
+        
     
 class PoseNetRGBOnly(nn.Module):
     def __init__(self, num_points, num_obj):
         super(PoseNetRGBOnly, self).__init__()
         self.num_points = num_points
+        self.num_obj = num_obj
         self.cnn = ModifiedResnet()
         self.conv1 = torch.nn.Conv1d(32, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
@@ -292,7 +322,7 @@ class PoseNetRGBOnly(nn.Module):
         self.conv4_t = torch.nn.Conv1d(128, num_obj*3, 1) #translation
         self.conv4_c = torch.nn.Conv1d(128, num_obj*1, 1) #confidence
 
-        self.num_obj = num_obj
+        
     
     def forward(self, img, choose, obj):
         out_img = self.cnn(img)
@@ -303,11 +333,11 @@ class PoseNetRGBOnly(nn.Module):
         choose = choose.repeat(1, di, 1)
         emb = torch.gather(emb, 2, choose).contiguous()
         
-        emb = self.conv1(emb)
-        emb = self.conv2(emb)
-        emb = self.conv3(emb)
-        emb = self.conv4(emb)
-        emb = self.conv5(emb)
+        emb = F.relu(self.conv1(emb))
+        emb = F.relu(self.conv2(emb))
+        emb = F.relu(self.conv3(emb))
+        emb = F.relu(self.conv4(emb))
+        emb = F.relu(self.conv5(emb))
         
         rx = F.relu(self.conv1_r(emb))
         tx = F.relu(self.conv1_t(emb))

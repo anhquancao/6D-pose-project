@@ -229,6 +229,7 @@ class PoseDataset(data.Dataset):
 
         target_r = np.resize(np.array(meta['cam_R_m2c']), (3, 3))
         target_t = np.array(meta['cam_t_m2c'])
+        
         add_t = np.array([random.uniform(-self.noise_trans, self.noise_trans) for i in range(3)])
 
         choose = mask[rmin:rmax, cmin:cmax].flatten().nonzero()[0]

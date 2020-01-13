@@ -111,7 +111,7 @@ class Encoder(nn.Module):
         return block1, block2, block3, block4
     
 class R(nn.Module):
-    def __init__(self):
+    def __init__(self, output_channel=1, output_size=(480, 640)):
         super(R, self).__init__()
         num_features = 64 + 2048 // 32
         
@@ -121,7 +121,7 @@ class R(nn.Module):
         self.conv2 = nn.Conv2d(num_features, num_features, kernel_size=5, padding=2, bias=False)
         self.bn2 = nn.BatchNorm2d(num_features)
         
-        self.conv3 = nn.Conv2d(num_features, 1, kernel_size=5, padding=2, bias=True)
+        self.conv3 = nn.Conv2d(num_features, output_channel, kernel_size=5, padding=2, bias=True)
         self.bilinear = nn.Upsample(size=(480, 640), mode='bilinear', align_corners=True)
         
         
@@ -193,7 +193,7 @@ class Decoder(nn.Module):
         return x
     
 class DepthV3(nn.Module):
-    def __init__(self, pretrained=True):
+    def __init__(self, pretrained=True, output_channel=1, output_size=(480, 640)):
         super(DepthV3, self).__init__()
         resnet = models.resnet50(pretrained=pretrained)
         self.encoder = Encoder()
@@ -201,7 +201,9 @@ class DepthV3(nn.Module):
         self.decoder = Decoder()
         
         self.MFF = MFF()
-        self.R = R()
+        self.R = R(output_channel=output_channel, output_size=output_size)
+        
+        self.up = UpProjBlockv2(32, 32)
         
         
     def forward(self, x):
@@ -211,6 +213,56 @@ class DepthV3(nn.Module):
         y = self.R(torch.cat([x_decoded, x_mff], 1))
         
         return y
+    
+class R2(nn.Module):
+    def __init__(self, output_channel=1, output_size=(480, 640)):
+        super(R2, self).__init__()
+        num_features = 64 + 2048 // 32
+        
+        self.conv1 = nn.Conv2d(num_features, num_features, kernel_size=5, padding=2, bias=False)
+        self.bn1 = nn.BatchNorm2d(num_features)
+        
+        self.conv2 = nn.Conv2d(num_features, num_features, kernel_size=5, padding=2, bias=False)
+        self.bn2 = nn.BatchNorm2d(num_features)
+        
+        self.conv3 = nn.Conv2d(64 + 2048 // 32, 32, kernel_size=5, padding=2, bias=True)
+        
+        
+    def forward(self, x):
+#         x = self.bilinear(x)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = F.relu(x)
+        
+        x = self.conv3(x)
+        
+        return x
+    
+class DepthV4(nn.Module):
+    def __init__(self, pretrained=True, output_channel=1, output_size=(480, 640)):
+        super(DepthV4, self).__init__()
+        resnet = models.resnet50(pretrained=pretrained)
+        self.encoder = Encoder()
+        
+        self.decoder = Decoder()
+        
+        self.MFF = MFF()
+        self.R = R(output_channel=output_channel, output_size=output_size)
+        
+        self.up = UpProjBlockv2(32, 32)
+        
+        
+    def forward(self, x):
+        block1, block2, block3, block4 = self.encoder(x)
+        x_decoded = self.decoder(block1, block2, block3, block4)
+        x_mff = self.MFF(block1, block2, block3, block4, [x_decoded.shape[2], x_decoded.shape[3]])
+        y = self.R(torch.cat([x_decoded, x_mff], 1))
+        
+        return self.up(y, [x.shape[2], x.shape[3]])
 
 class DepthV2(nn.Module):
     def __init__(self, output_size, pretrained=True):
@@ -291,14 +343,87 @@ class ConfNet(nn.Module):
         emb = F.relu(self.fc2(emb))
         return emb
         
+class PoseNetRGBOnlyV2(nn.Module):
+    def __init__(self, num_points, num_obj):
+        super(PoseNetRGBOnlyV2, self).__init__()
+        self.num_points = num_points
+        self.num_obj = num_obj
+        self.cnn = DepthV4(output_channel=32)
+        
+        self.conv1 = torch.nn.Conv1d(32, 512, 1)
+        self.conv2 = torch.nn.Conv1d(512, 1024, 1)
+        
+        self.conv1_r = torch.nn.Conv1d(1024, 512, 1)
+        self.conv1_t = torch.nn.Conv1d(1024, 512, 1)
+        self.conv1_c = torch.nn.Conv1d(1024, 512, 1)
+
+        self.conv2_r = torch.nn.Conv1d(512, 256, 1)
+        self.conv2_t = torch.nn.Conv1d(512, 256, 1)
+        self.conv2_c = torch.nn.Conv1d(512, 256, 1)
+
+        self.conv3_r = torch.nn.Conv1d(256, 128, 1)
+        self.conv3_t = torch.nn.Conv1d(256, 128, 1)
+        self.conv3_c = torch.nn.Conv1d(256, 128, 1)
+
+        self.conv4_r = torch.nn.Conv1d(128, num_obj*4, 1) #quaternion
+        self.conv4_t = torch.nn.Conv1d(128, num_obj*3, 1) #translation
+        self.conv4_c = torch.nn.Conv1d(128, num_obj*1, 1) #confidence
+
         
     
+    def forward(self, img, choose, obj):
+
+        out_img = self.cnn(img)
+
+        bs, di, _, _ = out_img.size()
+
+        emb = out_img.view(bs, di, -1)
+
+        choose = choose.repeat(1, di, 1)
+        emb = torch.gather(emb, 2, choose).contiguous()
+
+        emb = F.relu(self.conv1(emb))
+        
+        rx = F.relu(self.conv1_r(emb))
+        tx = F.relu(self.conv1_t(emb))
+        cx = F.relu(self.conv1_c(emb))      
+
+        rx = F.relu(self.conv2_r(rx))
+        tx = F.relu(self.conv2_t(tx))
+        cx = F.relu(self.conv2_c(cx))
+
+        rx = F.relu(self.conv3_r(rx))
+        tx = F.relu(self.conv3_t(tx))
+        cx = F.relu(self.conv3_c(cx))
+
+        rx = self.conv4_r(rx).view(bs, self.num_obj, 4, self.num_points)
+        tx = self.conv4_t(tx).view(bs, self.num_obj, 3, self.num_points)
+        cx = torch.sigmoid(self.conv4_c(cx)).view(bs, self.num_obj, 1, self.num_points)
+        
+        b = 0
+        out_rx = torch.index_select(rx[b], 0, obj[b])
+        out_tx = torch.index_select(tx[b], 0, obj[b])
+        out_cx = torch.index_select(cx[b], 0, obj[b])
+        
+        out_rx = out_rx.contiguous().transpose(2, 1).contiguous()
+        out_cx = out_cx.contiguous().transpose(2, 1).contiguous()
+        out_tx = out_tx.contiguous().transpose(2, 1).contiguous()
+        
+        return out_rx, out_tx, out_cx, emb.detach()
+
+    
 class PoseNetRGBOnly(nn.Module):
-    def __init__(self, num_points, num_obj):
+    def __init__(self, num_points, num_obj, model="psp"):
         super(PoseNetRGBOnly, self).__init__()
         self.num_points = num_points
         self.num_obj = num_obj
-        self.cnn = ModifiedResnet()
+        if model == 'psp':
+            self.cnn = ModifiedResnet()
+        if model == 'depthv4':
+            self.cnn = DepthV4(output_channel=32)
+
+            
+
         self.conv1 = torch.nn.Conv1d(32, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 256, 1)
@@ -325,14 +450,17 @@ class PoseNetRGBOnly(nn.Module):
         
     
     def forward(self, img, choose, obj):
+#         print(img.shape)
         out_img = self.cnn(img)
-        
+#         print(out_img.shape)
         bs, di, _, _ = out_img.size()
-        
+#         print('===========')
+#         print(out_img.shape)
         emb = out_img.view(bs, di, -1)
+#         print(emb.shape)
         choose = choose.repeat(1, di, 1)
         emb = torch.gather(emb, 2, choose).contiguous()
-        
+#         print(emb.shape)
         emb = F.relu(self.conv1(emb))
         emb = F.relu(self.conv2(emb))
         emb = F.relu(self.conv3(emb))

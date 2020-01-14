@@ -109,8 +109,8 @@ class DepthDataset(data.Dataset):
         return self.length
     
 class PoseDataset(data.Dataset):
-    def __init__(self, mode, num, add_noise, root, noise_trans, refine, use_true_depth=True):
-        self.objlist = [2, 4, 5, 10, 11]
+    def __init__(self, mode, num, add_noise, root, noise_trans, refine, use_true_depth=True, objlist=[2, 4, 5, 10, 11]):
+        self.objlist = objlist
         self.mode = mode
 
         self.list_rgb = []

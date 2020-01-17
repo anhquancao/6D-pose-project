@@ -46,11 +46,12 @@ def loss_no_conf(pred_r, pred_t, pred_c, target, model_points, idx, points, w, r
             pred = pred.view(3, bs * num_p, num_point_mesh).permute(1, 2, 0).contiguous()
 
     dis = torch.mean(torch.norm((pred - target), dim=2), dim=1)
+    dis = dis.view(bs, num_p)
     loss = torch.mean(dis)
 
     # print('------------> ', dis[0][which_max[0]].item(), pred_c[0][which_max[0]].item(), idx[0].item())
     del knn
-    return loss
+    return loss, dis
 
 
 class LossNoConf(_Loss):
@@ -178,10 +179,12 @@ def loss_conf(pred_loss, pred_r, pred_t, pred_c, target, model_points, idx, poin
             pred = pred.view(3, bs * num_p, num_point_mesh).permute(1, 2, 0).contiguous()
 
     dis = torch.mean(torch.norm((pred - target), dim=2), dim=1)
+    dis = dis.view(bs, num_p)
+    pred_loss = pred_loss.view(bs, num_p)
     
     loss = torch.mean((pred_loss - dis) ** 2)
     
-    pred_loss = pred_loss.view(bs, num_p)
+    
     how_min, which_min = torch.min(pred_loss, 1)
     dis = dis.view(bs, num_p)
        

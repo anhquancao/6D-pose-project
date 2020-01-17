@@ -10,6 +10,7 @@
 	* **lib/loss_depth.py**: All codes in this file
     * **lib/network.py**: class UpProjBlock, UpProjBlockv2, R, MFF, Decoder, DepthV3, R2, DepthV4, DepthV2, DepthNetPSP, ConfNet, PoseNetRGBOnlyV2, PoseNetRGBOnly
 	* **lib/utils.py**: functions im_convert, depth_to_img, visualize
+	* **lib/evaluate.py**: functions to evaluate the quantitative performance of the depth estimation model.
 
 * **Notebook in the root folder**
 	* **confidence pred.ipynb**: Train ConfNet
